@@ -38,11 +38,21 @@ func main() {
 	targetIndex := r.SubexpIndex("target")
 	target := matches[targetIndex]
 
-	if target == "/" {
-		conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
-	} else {
-		conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
-	}
+	// Route matching
+	echoRegexp, _ := regexp.Compile("^/echo/(?P<echo>[^ /]+)$")
 
-	fmt.Println(target)
+	out := ""
+	if target == "/" {
+		out = "HTTP/1.1 200 OK\r\n\r\n"
+	} else if echoRegexp.MatchString(target) {
+		echoMatches := echoRegexp.FindStringSubmatch(target)
+		echoIndex := echoRegexp.SubexpIndex("echo")
+		echo := echoMatches[echoIndex]
+		out = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(echo), echo)
+	} else {
+		out = "HTTP/1.1 404 Not Found\r\n\r\n"
+	}
+	conn.Write([]byte(out))
+
+	fmt.Println(out)
 }
