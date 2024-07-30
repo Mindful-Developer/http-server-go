@@ -5,7 +5,6 @@ import (
 	"net"
 	"os"
 	"regexp"
-	"strings"
 )
 
 func handleConnection(conn net.Conn) {
@@ -20,7 +19,7 @@ func handleConnection(conn net.Conn) {
 	fmt.Println(string(res))
 
 	// Request Regex
-	req, _ := regexp.Compile("^(?P<method>[A-Z]+) /(?P<targets>[^ ]+)? (?P<version>HTTP/[0-9.]+)")
+	req, _ := regexp.Compile(`^(?P<method>[A-Z]+) /(?P<targets>[^ ]+)? (?P<version>HTTP/[0-9.]+)`)
 	agent, _ := regexp.Compile(`User-Agent: (?P<useragent>\S+)`)
 
 	// Parse Request
@@ -35,26 +34,14 @@ func handleConnection(conn net.Conn) {
 		userAgent = agentMatches[agentIndex]
 	}
 
-	targetArr := []string{}
-	if targets != "" {
-		targetArr = strings.Split(targets, "/")
-	}
-
-	// fmt.Println("----------------")
-	// fmt.Println("Matches:")
-	// fmt.Println(targets)
-	// fmt.Println(len(targetArr))
-	// for i, target := range targetArr {
-	// 	fmt.Printf("%d: %s\n", i, target)
-	// }
-
 	// Route Regex
-	echoRegexp, _ := regexp.Compile("^echo/(?P<echo>[^ /]+)$")
-	userAgentRegexp, _ := regexp.Compile("^user-agent$")
+	echoRegexp, _ := regexp.Compile(`^echo/(?P<echo>[^ /]+)$`)
+	userAgentRegexp, _ := regexp.Compile(`^user-agent$`)
+	filesRegexp, _ := regexp.Compile(`^files/(?P<filename>[^ ]+)$`)
 
 	// Response
-	out := ""
-	if len(targetArr) == 0 {
+	out := "HTTP/1.1 404 Not Found\r\n\r\n"
+	if len(targets) == 0 {
 		out = "HTTP/1.1 200 OK\r\n\r\n"
 	} else if echoRegexp.MatchString(targets) {
 		echoMatches := echoRegexp.FindStringSubmatch(targets)
@@ -63,8 +50,21 @@ func handleConnection(conn net.Conn) {
 		out = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(echo), echo)
 	} else if userAgentRegexp.MatchString(targets) {
 		out = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(userAgent), userAgent)
-	} else {
-		out = "HTTP/1.1 404 Not Found\r\n\r\n"
+	} else if filesRegexp.MatchString(targets) {
+		fileMatches := filesRegexp.FindStringSubmatch(targets)
+		if len(fileMatches) != 0 {
+			filenameIndex := filesRegexp.SubexpIndex("filename")
+			filename := fileMatches[filenameIndex]
+			fmt.Println(filename)
+			data, err := os.ReadFile(fmt.Sprintf("/%s/%s", os.Args[2], filename))
+
+			if err != nil {
+				fmt.Println("Error reading file: " + err.Error())
+			} else {
+				sData := string(data)
+				out = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", len(sData), sData)
+			}
+		}
 	}
 	conn.Write([]byte(out))
 
