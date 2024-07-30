@@ -8,24 +8,9 @@ import (
 	"strings"
 )
 
-func main() {
-	// You can use print statements as follows for debugging, they'll be visible when running tests.
-	fmt.Println("Logs from your program will appear here!")
-
-	l, err := net.Listen("tcp", "0.0.0.0:4221")
-	if err != nil {
-		fmt.Println("Failed to bind to port 4221")
-		os.Exit(1)
-	}
-
-	conn, err := l.Accept()
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
-	}
-
+func handleConnection(conn net.Conn) {
 	res := make([]byte, 1024)
-	_, err = conn.Read(res)
+	_, err := conn.Read(res)
 	if err != nil {
 		fmt.Println("Error reading from connected client: ", err.Error())
 		os.Exit(1)
@@ -67,7 +52,6 @@ func main() {
 	echoRegexp, _ := regexp.Compile("^echo/(?P<echo>[^ /]+)$")
 	userAgentRegexp, _ := regexp.Compile("^user-agent$")
 
-
 	// Response
 	out := ""
 	if len(targetArr) == 0 {
@@ -84,5 +68,33 @@ func main() {
 	}
 	conn.Write([]byte(out))
 
+	fmt.Println("----------------")
+	fmt.Println("Sent:")
 	fmt.Println(out)
+	conn.Close()
+}
+
+func main() {
+	// You can use print statements as follows for debugging, they'll be visible when running tests.
+	fmt.Println("Logs from your program will appear here!")
+
+	var conn net.Conn
+	var err error
+	var l net.Listener
+
+	l, err = net.Listen("tcp", "0.0.0.0:4221")
+	if err != nil {
+		fmt.Println("Failed to bind to port 4221")
+		os.Exit(1)
+	}
+
+	for {
+		conn, err = l.Accept()
+		if err != nil {
+			fmt.Println("Error accepting connection: ", err.Error())
+			os.Exit(1)
+		}
+
+		go handleConnection(conn)
+	}
 }
