@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"regexp"
 )
 
 func main() {
@@ -23,9 +24,25 @@ func main() {
 		fmt.Println("Error accepting connection: ", err.Error())
 		os.Exit(1)
 	}
-	_, err = conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+
+	res := make([]byte, 1024)
+	_, err = conn.Read(res)
 	if err != nil {
-		fmt.Println("Error writing to connected client: ", err.Error())
+		fmt.Println("Error reading from connected client: ", err.Error())
 		os.Exit(1)
 	}
+	fmt.Println(string(res))
+
+	r, _ := regexp.Compile("^(?P<method>[A-Z]+) (?P<target>[^ ]+) (?P<version>HTTP/[0-9.]+)")
+	matches := r.FindStringSubmatch(string(res))
+	targetIndex := r.SubexpIndex("target")
+	target := matches[targetIndex]
+
+	if target == "/" {
+		conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	} else {
+		conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+	}
+
+	fmt.Println(target)
 }
