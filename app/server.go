@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"strings"
 )
 
 func handleConnection(conn net.Conn) {
@@ -24,8 +25,15 @@ func handleConnection(conn net.Conn) {
 
 	// Parse Request
 	matches := req.FindStringSubmatch(string(res))
+
+	methodIndex := req.SubexpIndex("method")
+	method := matches[methodIndex]
+
 	targetIndex := req.SubexpIndex("targets")
 	targets := matches[targetIndex]
+
+	resArr := strings.Split(string(res), "\r\n")
+	body := resArr[len(resArr)-1]
 
 	agentMatches := agent.FindStringSubmatch(string(res))
 	agentIndex := agent.SubexpIndex("useragent")
@@ -41,28 +49,50 @@ func handleConnection(conn net.Conn) {
 
 	// Response
 	out := "HTTP/1.1 404 Not Found\r\n\r\n"
-	if len(targets) == 0 {
-		out = "HTTP/1.1 200 OK\r\n\r\n"
-	} else if echoRegexp.MatchString(targets) {
-		echoMatches := echoRegexp.FindStringSubmatch(targets)
-		echoIndex := echoRegexp.SubexpIndex("echo")
-		echo := echoMatches[echoIndex]
-		out = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(echo), echo)
-	} else if userAgentRegexp.MatchString(targets) {
-		out = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(userAgent), userAgent)
-	} else if filesRegexp.MatchString(targets) {
-		fileMatches := filesRegexp.FindStringSubmatch(targets)
-		if len(fileMatches) != 0 {
-			filenameIndex := filesRegexp.SubexpIndex("filename")
-			filename := fileMatches[filenameIndex]
-			fmt.Println(filename)
-			data, err := os.ReadFile(fmt.Sprintf("/%s/%s", os.Args[2], filename))
 
-			if err != nil {
-				fmt.Println("Error reading file: " + err.Error())
-			} else {
-				sData := string(data)
-				out = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", len(sData), sData)
+	switch method {
+	case "GET":
+		switch {
+		case len(targets) == 0:
+			out = "HTTP/1.1 200 OK\r\n\r\n"
+		case echoRegexp.MatchString(targets):
+			echoMatches := echoRegexp.FindStringSubmatch(targets)
+			echoIndex := echoRegexp.SubexpIndex("echo")
+			echo := echoMatches[echoIndex]
+			out = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(echo), echo)
+		case userAgentRegexp.MatchString(targets):
+			out = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(userAgent), userAgent)
+		case filesRegexp.MatchString(targets):
+			fileMatches := filesRegexp.FindStringSubmatch(targets)
+			if len(fileMatches) != 0 {
+				filenameIndex := filesRegexp.SubexpIndex("filename")
+				filename := fileMatches[filenameIndex]
+				data, err := os.ReadFile(os.Args[2] + filename)
+
+				if err != nil {
+					fmt.Println("Error reading file: " + err.Error())
+				} else {
+					sData := string(data)
+					out = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", len(sData), sData)
+				}
+			}
+		}
+	case "POST":
+		switch {
+		case filesRegexp.MatchString(targets):
+			fileMatches := filesRegexp.FindStringSubmatch(targets)
+			if len(fileMatches) != 0 {
+				filenameIndex := filesRegexp.SubexpIndex("filename")
+				filename := fileMatches[filenameIndex]
+				fmt.Println(os.Args[2]+filename, body)
+				file, err := os.OpenFile(os.Args[2]+filename, os.O_WRONLY|os.O_CREATE, 0644)
+				if err != nil {
+					fmt.Println("Error reading file: " + err.Error())
+				} else {
+					defer file.Close()
+					file.Write([]byte(strings.Trim(body, "\x00")))
+					out = "HTTP/1.1 201 Created\r\n\r\n"
+				}
 			}
 		}
 	}
