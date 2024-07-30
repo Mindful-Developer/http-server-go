@@ -5,13 +5,12 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"strings"
 )
 
 func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Println("Logs from your program will appear here!")
-
-	// Uncomment this block to pass the first stage
 
 	l, err := net.Listen("tcp", "0.0.0.0:4221")
 	if err != nil {
@@ -31,24 +30,55 @@ func main() {
 		fmt.Println("Error reading from connected client: ", err.Error())
 		os.Exit(1)
 	}
+	fmt.Println("----------------")
+	fmt.Println("Received:")
 	fmt.Println(string(res))
 
-	r, _ := regexp.Compile("^(?P<method>[A-Z]+) (?P<target>[^ ]+) (?P<version>HTTP/[0-9.]+)")
-	matches := r.FindStringSubmatch(string(res))
-	targetIndex := r.SubexpIndex("target")
-	target := matches[targetIndex]
+	// Request Regex
+	req, _ := regexp.Compile("^(?P<method>[A-Z]+) /(?P<targets>[^ ]+)? (?P<version>HTTP/[0-9.]+)")
+	agent, _ := regexp.Compile(`User-Agent: (?P<useragent>\S+)`)
 
-	// Route matching
-	echoRegexp, _ := regexp.Compile("^/echo/(?P<echo>[^ /]+)$")
+	// Parse Request
+	matches := req.FindStringSubmatch(string(res))
+	targetIndex := req.SubexpIndex("targets")
+	targets := matches[targetIndex]
 
+	agentMatches := agent.FindStringSubmatch(string(res))
+	agentIndex := agent.SubexpIndex("useragent")
+	userAgent := ""
+	if len(agentMatches) != 0 {
+		userAgent = agentMatches[agentIndex]
+	}
+
+	targetArr := []string{}
+	if targets != "" {
+		targetArr = strings.Split(targets, "/")
+	}
+
+	// fmt.Println("----------------")
+	// fmt.Println("Matches:")
+	// fmt.Println(targets)
+	// fmt.Println(len(targetArr))
+	// for i, target := range targetArr {
+	// 	fmt.Printf("%d: %s\n", i, target)
+	// }
+
+	// Route Regex
+	echoRegexp, _ := regexp.Compile("^echo/(?P<echo>[^ /]+)$")
+	userAgentRegexp, _ := regexp.Compile("^user-agent$")
+
+
+	// Response
 	out := ""
-	if target == "/" {
+	if len(targetArr) == 0 {
 		out = "HTTP/1.1 200 OK\r\n\r\n"
-	} else if echoRegexp.MatchString(target) {
-		echoMatches := echoRegexp.FindStringSubmatch(target)
+	} else if echoRegexp.MatchString(targets) {
+		echoMatches := echoRegexp.FindStringSubmatch(targets)
 		echoIndex := echoRegexp.SubexpIndex("echo")
 		echo := echoMatches[echoIndex]
 		out = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(echo), echo)
+	} else if userAgentRegexp.MatchString(targets) {
+		out = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(userAgent), userAgent)
 	} else {
 		out = "HTTP/1.1 404 Not Found\r\n\r\n"
 	}
