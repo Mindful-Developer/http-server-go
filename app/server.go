@@ -132,7 +132,7 @@ func routeRequest(request Request) Response {
 			response.Reason = "Not Found"
 		}
 	case "POST":
-		switch request.Target {
+		switch target {
 		case "/files":
 			response.StatusCode = 201
 			response.Reason = "Created"
@@ -162,7 +162,12 @@ func handleConnection(conn net.Conn) {
 
 	request := parseRequest(string(res))
 	response := routeRequest(request)
-	conn.Write(buildResponse(response))
+	rStr := buildResponse(response)
+	conn.Write(rStr)
+
+	fmt.Println("----------------")
+	fmt.Println("Sent:")
+	fmt.Println(string(rStr))
 
 	//// Request Regex
 	//reqRegexp, _ := regexp.Compile(`^(?P<method>[A-Z]+) /(?P<targets>[^ ]+)? (?P<version>HTTP/[0-9.]+)`)
