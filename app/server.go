@@ -1,6 +1,7 @@
 package main
 
 import (
+	"compress/gzip"
 	"encoding/hex"
 	"fmt"
 	"net"
@@ -85,7 +86,11 @@ func splitTarget(target string) (string, string) {
 }
 
 func compress(data string) string {
-	return hex.EncodeToString([]byte(data))
+	var b strings.Builder
+	w := gzip.NewWriter(&b)
+	w.Write([]byte(data))
+	w.Close()
+	return hex.EncodeToString([]byte(b.String()))
 }
 
 func routeRequest(request Request) Response {
