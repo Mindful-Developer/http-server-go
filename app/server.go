@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/hex"
 	"fmt"
 	"net"
 	"os"
@@ -91,7 +90,7 @@ func compress(data string) (int, string) {
 	w := gzip.NewWriter(&b)
 	w.Write([]byte(data))
 	w.Close()
-	return len(b.String()), hex.EncodeToString([]byte(b.String()))
+	return len(b.String()), b.String()
 }
 
 func routeRequest(request Request) Response {
