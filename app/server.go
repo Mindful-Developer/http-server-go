@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net"
 	"os"
@@ -83,6 +84,10 @@ func splitTarget(target string) (string, string) {
 	}
 }
 
+func compress(data string) string {
+	return hex.EncodeToString([]byte(data))
+}
+
 func routeRequest(request Request) Response {
 	response := Response{
 		StatusCode: 404,
@@ -92,11 +97,6 @@ func routeRequest(request Request) Response {
 	}
 
 	target, path := splitTarget(request.Target)
-
-	encodings, ok := request.Headers["Accept-Encoding"]
-	if ok && strings.Contains(encodings, "gzip") {
-		response.Headers["Content-Encoding"] = "gzip"
-	}
 
 	switch request.Method {
 	case "GET":
@@ -147,6 +147,16 @@ func routeRequest(request Request) Response {
 			response.Reason = "Not Found"
 		}
 	}
+
+	encodings, ok := request.Headers["Accept-Encoding"]
+	if ok && strings.Contains(encodings, "gzip") {
+		response.Headers["Content-Encoding"] = "gzip"
+		response.Headers["Content-Type"] = "text/plain"
+		response.Body = compress(response.Body)
+		response.Headers["Content-Length"] = fmt.Sprintf("%d", len(response.Body))
+
+	}
+
 	return response
 }
 
