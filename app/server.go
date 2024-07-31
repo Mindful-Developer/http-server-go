@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"compress/gzip"
 	"encoding/hex"
 	"fmt"
@@ -85,12 +86,12 @@ func splitTarget(target string) (string, string) {
 	}
 }
 
-func compress(data string) string {
-	var b strings.Builder
+func compress(data string) (int, string) {
+	var b bytes.Buffer
 	w := gzip.NewWriter(&b)
 	w.Write([]byte(data))
 	w.Close()
-	return hex.EncodeToString([]byte(b.String()))
+	return len(b.String()), hex.EncodeToString([]byte(b.String()))
 }
 
 func routeRequest(request Request) Response {
@@ -157,9 +158,9 @@ func routeRequest(request Request) Response {
 	if ok && strings.Contains(encodings, "gzip") {
 		response.Headers["Content-Encoding"] = "gzip"
 		response.Headers["Content-Type"] = "text/plain"
-		response.Body = compress(response.Body)
-		response.Headers["Content-Length"] = fmt.Sprintf("%d", len(response.Body))
-
+		i, body := compress(response.Body)
+		response.Body = body
+		response.Headers["Content-Length"] = fmt.Sprintf("%d", i)
 	}
 
 	return response
