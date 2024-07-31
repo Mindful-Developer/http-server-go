@@ -67,7 +67,7 @@ func uploadFile(filename string, data string) error {
 	if len(os.Args) < 3 {
 		return fmt.Errorf("no directory provided")
 	}
-	err := os.WriteFile(os.Args[2]+filename, []byte(data), 0644)
+	err := os.WriteFile(os.Args[2]+filename, []byte(strings.Trim(data, "\x00")), 0644)
 	if err != nil {
 		return err
 	}
