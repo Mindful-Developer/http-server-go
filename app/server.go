@@ -93,7 +93,8 @@ func routeRequest(request Request) Response {
 
 	target, path := splitTarget(request.Target)
 
-	if request.Headers["Accept-Encoding"] == "gzip" {
+	encodings, ok := request.Headers["Accept-Encoding"]
+	if ok && strings.Contains(encodings, "gzip") {
 		response.Headers["Content-Encoding"] = "gzip"
 	}
 
