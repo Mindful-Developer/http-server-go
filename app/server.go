@@ -123,7 +123,7 @@ func routeRequest(request Request) Response {
 				response.StatusCode = 404
 				response.Reason = "Not Found"
 			} else {
-				response.Headers["Content-Type"] = "text/octet-stream"
+				response.Headers["Content-Type"] = "application/octet-stream"
 				response.Headers["Content-Length"] = fmt.Sprintf("%d", len(file))
 				response.Body = file
 			}
